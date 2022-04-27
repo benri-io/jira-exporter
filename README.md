@@ -1,6 +1,6 @@
 # Prometheus Jira Exporter
 
-Exposes basic metrics for your projects from the Jira API, to a Prometheus compatible endpoint.
+Exposes basic metrics for your projects from the Jira API, to a Prometheus compatible endpoint. This is a fork from https://github.com/infinityworks/github-exporter and just modified for a different use case. A lot of the core framework is the same. 
 
 ## Configuration
 
