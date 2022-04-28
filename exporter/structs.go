@@ -21,20 +21,7 @@ type Data []Datum
 
 // Datum is used to store data from all the relevant endpoints in the API
 type Datum struct {
-	Issues []IssueMetric
-}
-
-type IssueMetric struct {
-	Project   string
-	Epic      string
-	Owner     string
-	Creator   string
-	IssueType string
-	Assigned  string
-	Status    string
-	Priority  string
-	Labels    []string
-	Votes     int8
+	Issues []Issue
 }
 
 // RateLimits is used to store rate limit data into a struct
@@ -86,11 +73,44 @@ type StatusCategory struct {
 	Name      string `json:"name"`
 }
 
+type ProjectInfo struct {
+	Name            string              `json:"name"`
+	Self            string              `json:"self"`
+	ProjectTypeKey  string              `json:"projectTypeKey"`
+	Simplified      bool                `json:"simplified"`
+	Key             string              `json"key`
+	AvatarURLs      map[string]string   `json:"avatarUrls"`
+	ProjectCategory ProjectCategoryInfo `json:"projectCategory"`
+	Id              string              `json:"id"`
+}
+
+type AccountInfo struct {
+	DisplayName  string            `json:"displayName"`
+	TimeZone     string            `json:"timeZone"`
+	AccountId    string            `json:"accountId"`
+	AccountType  string            `json:"accountType"`
+	Self         string            `json:"self"`
+	AvatarURLs   map[string]string `json:"avatarUrls"`
+	Active       bool              `json:"active"`
+	EmailAddrees string            `json:"emailAddress"`
+}
+
+type ProjectCategoryInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Self        string `json:"self"`
+	Id          string `json:"id"`
+}
+
 type Field struct {
 	Summary   string               `json:"summary"`
 	Status    Status               `json:"status"`
 	Priority  Priority             `json:"priority"`
 	IssueType IssueTypeDescription `json:"issuetype"`
+	Project   ProjectInfo          `json:"project"`
+	Creator   AccountInfo          `json:"creator"`
+	Assignee  AccountInfo          `json:"assignee"`
+	Reporter  AccountInfo          `json:"reporter"`
 }
 
 type IssueFilter struct {

@@ -14,7 +14,7 @@ import (
 // types=( "Task" "Story" "Epic" )
 // for f in $types; do echo $f; ff=$(cat testdata/jira_response.json | jq '.issues[] | [.key , .fields.issuetype.name]' | grep $f | wc -l);  echo $ff; done
 func TestUnmarshalIssuesResponse(t *testing.T) {
-	var data = readFile("testdata/jira_response_cleaned.json")
+	var data = readFile("testdata/jira_response.json")
 	var sr exporter.SearchResponse
 	err := json.Unmarshal([]byte(data), &sr)
 	if err != nil {

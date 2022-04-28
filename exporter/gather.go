@@ -14,7 +14,7 @@ import (
 // gatherData - jCollects the data from the API and stores into struct
 func (e *Exporter) gatherData() ([]*Datum, error) {
 
-	log.GetDefaultLogger().Info("Gathering Data with %d targets", len(e.TargetURLs()))
+	log.GetDefaultLogger().Infof("Gathering Data with %d targets", len(e.TargetURLs()))
 	defer log.GetDefaultLogger().Infof("Done gathering data")
 
 	data := []*Datum{}
@@ -36,12 +36,13 @@ func (e *Exporter) gatherData() ([]*Datum, error) {
 		} else {
 			d := new(Datum)
 
-			// Get releases
+			// Get issues
 			if strings.Contains(response.url, "/search") {
 				getIssues(e, response.url, &d.Issues)
+				logger.GetDefaultLogger().Infof("Got %d issues in response", len(d.Issues))
 			}
 
-			json.Unmarshal(response.body, &d)
+			//json.Unmarshal(response.body, &d)
 			data = append(data, d)
 		}
 
@@ -107,7 +108,7 @@ type JQLRequest struct {
 	StartAt      int      `json:"startAt"`
 }
 
-func getIssues(e *Exporter, url string, data *[]IssueMetric) {
+func getIssues(e *Exporter, url string, data *[]Issue) {
 
 	log.GetDefaultLogger().Infof("Getting issues: %s", url)
 	defer log.GetDefaultLogger().Infof("Done getting issues")
@@ -134,17 +135,14 @@ func getIssues(e *Exporter, url string, data *[]IssueMetric) {
 	if err != nil {
 		logger.GetDefaultLogger().Errorf("Unable to obtain issues from API, Error: %s", err)
 	}
-	dat, _ := json.Marshal(issueResponse)
-	if dat != nil {
-		logger.GetDefaultLogger().Infof("Got response: %v", string(dat))
-	}
+
 	var response SearchResponse
 	err = json.Unmarshal(issueResponse[0].body, &response)
 	if err != nil {
 		log.GetDefaultLogger().Errorf("Error marshalling response: %s", err)
 	}
-	//json.Unmarshal(issueResponse[0].body, &data)
 
+	*data = response.Issues
 }
 
 // isArray simply looks for key details that determine if the JSON response is an array or not.
