@@ -24,7 +24,7 @@ func NewServer(exporter exporter.Exporter) *Server {
 	r.Handle(exporter.MetricsPath(), promhttp.Handler())
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`<html>
-		                <head><title>Benri Exporter</title></head>
+		                <head><title>Jira Prometheus Exporter</title></head>
 		                <body>
 		                   <h1>GitHub Prometheus Metrics Exporter</h1>
 						   <p>For more information, visit <a href=https://github.com/benri-io/jira-exporter>GitHub</a></p>
