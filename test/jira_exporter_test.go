@@ -4,8 +4,18 @@ import (
 	"encoding/json"
 	"testing"
 
+        "io/ioutil"
 	"github.com/benri-io/jira-exporter/exporter"
 )
+
+// reads the file from a path. helper
+func readFile(path string) string {
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return string(bytes)
+}
 
 // To test:
 // Task  15

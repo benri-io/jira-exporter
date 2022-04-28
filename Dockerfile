@@ -1,10 +1,10 @@
 FROM golang:1.14.8-stretch as build
-LABEL maintainer="Infinity Works"
+LABEL maintainer="Benri.io"
 
 ENV GO111MODULE=on
 
-COPY ./ /go/src/github.com/infinityworks/github-exporter
-WORKDIR /go/src/github.com/infinityworks/github-exporter
+COPY ./ /go/src/github.com/benri-io/jira-exporter
+WORKDIR /go/src/github.com/benri-io/jira-exporter
 
 RUN go mod download \
     && go test ./... \
