@@ -74,13 +74,13 @@ type Status struct {
 	IconURL        string         `json:"iconUrl"`
 	Description    string         `json:"description"`
 	Name           string         `json:"name"`
-	Id             int            `json:"id"`
+	Id             string         `json:"id"`
 	StatusCategory StatusCategory `json:"statusCategory"`
 }
 
 type StatusCategory struct {
 	Self      string `json:"self"`
-	Id        string `json:"id"`
+	Id        int    `json:"id"`
 	Key       string `json:"key"`
 	ColorName string `json:"colorName"`
 	Name      string `json:"name"`
@@ -91,6 +91,25 @@ type Field struct {
 	Status    Status               `json:"status"`
 	Priority  Priority             `json:"priority"`
 	IssueType IssueTypeDescription `json:"issuetype"`
+}
+
+type IssueFilter struct {
+	IssueType string
+}
+
+func (f IssueFilter) Filter(issues []Issue) (ret []Issue) {
+	for _, i := range issues {
+		var keep = true
+
+		if f.IssueType != "" && i.Fields.IssueType.Name != f.IssueType {
+			keep = false
+		}
+
+		if keep {
+			ret = append(ret, i)
+		}
+	}
+	return ret
 }
 
 type SearchResponse struct {
@@ -115,7 +134,7 @@ type SearchResponse struct {
 // },
 type IssueTypeDescription struct {
 	Self           string `json:"self"`
-	Id             int    `json:"id"`
+	Id             string `json:"id"`
 	Description    string `json:"description"`
 	IconURL        string `json:"iconUrl"`
 	Name           string `json:"name"`
