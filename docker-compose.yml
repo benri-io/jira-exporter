@@ -1,14 +1,22 @@
 version: "2"
 
+networks:
+  benri-net:
+    external:
+      name: benri-net
+
 services:
-  github-exporter:
+  jira-exporter:
+    container_name: jira-exporter
+    build: .
     tty: true
     stdin_open: true
     expose:
       - 9171
+    networks:
+      - benri-net
     ports:
       - 9171:9171
-    image: infinityworks/github-exporter:latest
-    environment:
-      - REPOS=<REPOS you want to monitor>
-      - GITHUB_TOKEN=<your github api token>
+    env_file:
+      - .env
+  

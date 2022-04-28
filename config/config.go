@@ -9,56 +9,47 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"os"
-
-	cfg "github.com/infinityworks/go-common/config"
 )
 
 // Config struct holds all of the runtime confgiguration for the application
 type Config struct {
-	*cfg.BaseConfig
-	apiUrl        *url.URL
-	repositories  []string
-	organisations []string
-	users         []string
-	apiToken      string
-	targetURLs    []string
+	*BaseConfig
+	apiUrl     *url.URL
+	projects   []string
+	apiToken   string
+	jiraUser   string
+	targetURLs []string
 }
 
 // Init populates the Config struct based on environmental runtime configuration
 func Init() Config {
 
-	listenPort := cfg.GetEnv("LISTEN_PORT", "9171")
+	listenPort := GetEnv("LISTEN_PORT", "9171")
 	os.Setenv("LISTEN_PORT", listenPort)
-	ac := cfg.Init()
+	ac := InitBaseConfig()
 
 	appConfig := Config{
 		&ac,
 		nil,
 		nil,
-		nil,
-		nil,
+		"",
 		"",
 		nil,
 	}
 
-	err := appConfig.SetAPIURL(cfg.GetEnv("API_URL", "https://api.github.com"))
+	err := appConfig.SetAPIURL(GetEnv("JIRA_API_URL", "https://benri.atlassian.net/"))
 	if err != nil {
 		log.Errorf("Error initialising Configuration. Unable to parse API URL. Error: %v", err)
 	}
-	repos := os.Getenv("REPOS")
+	repos := os.Getenv("PROJECTS")
 	if repos != "" {
-		appConfig.SetRepositories(strings.Split(repos, ", "))
+		appConfig.SetProjects(strings.Split(repos, ", "))
 	}
-	orgs := os.Getenv("ORGS")
-	if orgs != "" {
-		appConfig.SetOrganisations(strings.Split(repos, ", "))
-	}
-	users := os.Getenv("USERS")
-	if users != "" {
-		appConfig.SetUsers(strings.Split(users, ", "))
-	}
-	tokenEnv := os.Getenv("GITHUB_TOKEN")
-	tokenFile := os.Getenv("GITHUB_TOKEN_FILE")
+
+	appConfig.SetJiraUser(GetEnv("JIRA_USER", ""))
+
+	tokenEnv := os.Getenv("JIRA_API_TOKEN")
+	tokenFile := os.Getenv("JIRA_TOKEN_FILE")
 	if tokenEnv != "" {
 		appConfig.SetAPIToken(tokenEnv)
 	} else if tokenFile != "" {
@@ -67,7 +58,7 @@ func Init() Config {
 			log.Errorf("Error initialising Configuration, Error: %v", err)
 		}
 	}
-
+	appConfig.setScrapeURLs()
 	return appConfig
 }
 
@@ -86,6 +77,10 @@ func (c *Config) APIToken() string {
 	return c.apiToken
 }
 
+func (c *Config) User() string {
+	return c.jiraUser
+}
+
 // Sets the base API URL returning an error if the supplied string is not a valid URL
 func (c *Config) SetAPIURL(u string) error {
 	ur, err := url.Parse(u)
@@ -93,21 +88,14 @@ func (c *Config) SetAPIURL(u string) error {
 	return err
 }
 
-// Overrides the entire list of repositories
-func (c *Config) SetRepositories(repos []string) {
-	c.repositories = repos
-	c.setScrapeURLs()
+// Sets the base API URL returning an error if the supplied string is not a valid URL
+func (c *Config) SetJiraUser(u string) {
+	c.jiraUser = u
 }
 
-// Overrides the entire list of organisations
-func (c *Config) SetOrganisations(orgs []string) {
-	c.organisations = orgs
-	c.setScrapeURLs()
-}
-
-// Overrides the entire list of users
-func (c *Config) SetUsers(users []string) {
-	c.users = users
+// Overrides the entire list of projects
+func (c *Config) SetProjects(projects []string) {
+	c.projects = projects
 	c.setScrapeURLs()
 }
 
@@ -132,54 +120,20 @@ func (c *Config) setScrapeURLs() error {
 
 	urls := []string{}
 
-	opts := map[string]string{"per_page": "100"} // Used to set the Github API to return 100 results per page (max)
+	opts := map[string]string{} // Used to set the Jira API to return 100 results per page (max)
 
-	if len(c.repositories) == 0 && len(c.organisations) == 0 && len(c.users) == 0 {
-		log.Info("No targets specified. Only rate limit endpoint will be scraped")
+	y := *c.apiUrl
+	y.Path = path.Join(y.Path, "/search")
+	q := y.Query()
+	for k, v := range opts {
+		q.Add(k, v)
 	}
-
-	// Append repositories to the array
-	if len(c.repositories) > 0 {
-		for _, x := range c.repositories {
-			y := *c.apiUrl
-			y.Path = path.Join(y.Path, "repos", x)
-			q := y.Query()
-			for k, v := range opts {
-				q.Add(k, v)
-			}
-			y.RawQuery = q.Encode()
-			urls = append(urls, y.String())
-		}
-	}
-
-	// Append github orginisations to the array
-	if len(c.organisations) > 0 {
-		for _, x := range c.organisations {
-			y := *c.apiUrl
-			y.Path = path.Join(y.Path, "orgs", x, "repos")
-			q := y.Query()
-			for k, v := range opts {
-				q.Add(k, v)
-			}
-			y.RawQuery = q.Encode()
-			urls = append(urls, y.String())
-		}
-	}
-
-	if len(c.users) > 0 {
-		for _, x := range c.users {
-			y := *c.apiUrl
-			y.Path = path.Join(y.Path, "users", x, "repos")
-			q := y.Query()
-			for k, v := range opts {
-				q.Add(k, v)
-			}
-			y.RawQuery = q.Encode()
-			urls = append(urls, y.String())
-		}
-	}
+	y.RawQuery = q.Encode()
+	urls = append(urls, y.String())
 
 	c.targetURLs = urls
+
+	log.Infof("Got %d targets", len(urls))
 
 	return nil
 }

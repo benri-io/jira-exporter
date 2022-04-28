@@ -7,11 +7,15 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/benri-io/jira-exporter/logger"
+	log "github.com/benri-io/jira-exporter/logger"
 )
 
-// gatherData - Collects the data from the API and stores into struct
+// gatherData - jCollects the data from the API and stores into struct
 func (e *Exporter) gatherData() ([]*Datum, error) {
+
+	log.GetDefaultLogger().Infof("Gathering Data with %d targets", len(e.TargetURLs()))
+	defer log.GetDefaultLogger().Infof("Done gathering data")
 
 	data := []*Datum{}
 
@@ -23,7 +27,7 @@ func (e *Exporter) gatherData() ([]*Datum, error) {
 
 	for _, response := range responses {
 
-		// Github can at times present an array, or an object for the same data set.
+		// Jira can at times present an array, or an object for the same data set.
 		// This code checks handles this variation.
 		if isArray(response.body) {
 			ds := []*Datum{}
@@ -32,19 +36,17 @@ func (e *Exporter) gatherData() ([]*Datum, error) {
 		} else {
 			d := new(Datum)
 
-			// Get releases
-			if strings.Contains(response.url, "/repos/") {
-				getReleases(e, response.url, &d.Releases)
+			// Get issues
+			if strings.Contains(response.url, "/search") {
+				getIssues(e, response.url, &d.Issues)
+				logger.GetDefaultLogger().Infof("Got %d issues in response", len(d.Issues))
 			}
-			// Get PRs
-			if strings.Contains(response.url, "/repos/") {
-				getPRs(e, response.url, &d.Pulls)
-			}
-			json.Unmarshal(response.body, &d)
+
+			//json.Unmarshal(response.body, &d)
 			data = append(data, d)
 		}
 
-		log.Infof("API data fetched for repository: %s", response.url)
+		log.GetDefaultLogger().Infof("API data fetched for repository: %s", response.url)
 	}
 
 	//return data, rates, err
@@ -55,6 +57,10 @@ func (e *Exporter) gatherData() ([]*Datum, error) {
 // getRates obtains the rate limit data for requests against the github API.
 // Especially useful when operating without oauth and the subsequent lower cap.
 func (e *Exporter) getRates() (*RateLimits, error) {
+
+	log.GetDefaultLogger().Infof("Getting rates")
+	defer log.GetDefaultLogger().Infof("Done getting rates")
+
 	u := *e.APIURL()
 	u.Path = path.Join(u.Path, "rate_limit")
 
@@ -64,9 +70,8 @@ func (e *Exporter) getRates() (*RateLimits, error) {
 	}
 	defer resp.Body.Close()
 
-	// Triggers if rate-limiting isn't enabled on private Github Enterprise installations
 	if resp.StatusCode == 404 {
-		return &RateLimits{}, fmt.Errorf("Rate Limiting not enabled in GitHub API")
+		return &RateLimits{}, fmt.Errorf("Rate Limiting not enabled in JIRA API")
 	}
 
 	limit, err := strconv.ParseFloat(resp.Header.Get("X-RateLimit-Limit"), 64)
@@ -95,30 +100,49 @@ func (e *Exporter) getRates() (*RateLimits, error) {
 
 }
 
-func getReleases(e *Exporter, url string, data *[]Release) {
-	i := strings.Index(url, "?")
-	baseURL := url[:i]
-	releasesURL := baseURL + "/releases"
-	releasesResponse, err := asyncHTTPGets([]string{releasesURL}, e.APIToken())
-
-	if err != nil {
-		log.Errorf("Unable to obtain releases from API, Error: %s", err)
-	}
-
-	json.Unmarshal(releasesResponse[0].body, &data)
+type JQLRequest struct {
+	JQL          string   `json:"jql"`
+	MaxResults   int      `json:"maxResults"`
+	FieldsByKeys bool     `json:"fieldsByKeys"`
+	Fields       []string `json:"fields"`
+	StartAt      int      `json:"startAt"`
 }
 
-func getPRs(e *Exporter, url string, data *[]Pull) {
-	i := strings.Index(url, "?")
-	baseURL := url[:i]
-	pullsURL := baseURL + "/pulls"
-	pullsResponse, err := asyncHTTPGets([]string{pullsURL}, e.APIToken())
+func getIssues(e *Exporter, url string, data *[]Issue) {
 
-	if err != nil {
-		log.Errorf("Unable to obtain pull requests from API, Error: %s", err)
+	log.GetDefaultLogger().Infof("Getting issues: %s", url)
+	defer log.GetDefaultLogger().Infof("Done getting issues")
+
+	i := strings.Index(url, "?")
+	if i > -1 {
+		url = url[:i]
+	}
+	issuesURL := url //+ "/search"
+
+	req := []PostRequest{PostRequest{
+		target: issuesURL,
+		data: JQLRequest{
+			JQL:          fmt.Sprintf("(updated >= -%dh and status CHANGED) or (created >= -%dh", 24, 24),
+			MaxResults:   -1,
+			FieldsByKeys: false,
+			Fields:       []string{"*all"},
+			StartAt:      0,
+		},
+	},
 	}
 
-	json.Unmarshal(pullsResponse[0].body, &data)
+	issueResponse, err := asyncHTTPPosts(req, e.User(), e.APIToken())
+	if err != nil {
+		logger.GetDefaultLogger().Errorf("Unable to obtain issues from API, Error: %s", err)
+	}
+
+	var response SearchResponse
+	err = json.Unmarshal(issueResponse[0].body, &response)
+	if err != nil {
+		log.GetDefaultLogger().Errorf("Error marshalling response: %s", err)
+	}
+
+	*data = response.Issues
 }
 
 // isArray simply looks for key details that determine if the JSON response is an array or not.

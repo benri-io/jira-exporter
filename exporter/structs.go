@@ -3,7 +3,7 @@ package exporter
 import (
 	"net/http"
 
-	"github.com/infinityworks/github-exporter/config"
+	"github.com/benri-io/jira-exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -21,43 +21,7 @@ type Data []Datum
 
 // Datum is used to store data from all the relevant endpoints in the API
 type Datum struct {
-	Name  string `json:"name"`
-	Owner struct {
-		Login string `json:"login"`
-	} `json:"owner"`
-	License struct {
-		Key string `json:"key"`
-	} `json:"license"`
-	Language   string  `json:"language"`
-	Archived   bool    `json:"archived"`
-	Private    bool    `json:"private"`
-	Fork       bool    `json:"fork"`
-	Forks      float64 `json:"forks"`
-	Stars      float64 `json:"stargazers_count"`
-	OpenIssues float64 `json:"open_issues"`
-	Watchers   float64 `json:"subscribers_count"`
-	Size       float64 `json:"size"`
-	Releases   []Release
-	Pulls      []Pull
-}
-
-type Release struct {
-	Name   string  `json:"name"`
-	Assets []Asset `json:"assets"`
-}
-
-type Pull struct {
-	Url  string `json:"url"`
-	User struct {
-		Login string `json:"login"`
-	} `json:"user"`
-}
-
-type Asset struct {
-	Name      string `json:"name"`
-	Size      int64  `json:"size"`
-	Downloads int32  `json:"download_count"`
-	CreatedAt string `json:"created_at"`
+	Issues []Issue
 }
 
 // RateLimits is used to store rate limit data into a struct
@@ -74,4 +38,132 @@ type Response struct {
 	response *http.Response
 	body     []byte
 	err      error
+}
+
+type Issue struct {
+	Expand string      `json:"expand"`
+	Id     string      `json:id`
+	Self   string      `json:"self"`
+	Key    string      `json:"key"`
+	Fields Field       `json:"fields"`
+	Parent interface{} `json:"parent"`
+}
+
+type Priority struct {
+	Self    string `json:"self"`
+	Name    string `json:"name"`
+	Id      string `json:"id"`
+	IconURL string `json:"iconUrl"`
+}
+
+type Status struct {
+	Self           string         `json:"self"`
+	IconURL        string         `json:"iconUrl"`
+	Description    string         `json:"description"`
+	Name           string         `json:"name"`
+	Id             string         `json:"id"`
+	StatusCategory StatusCategory `json:"statusCategory"`
+}
+
+type StatusCategory struct {
+	Self      string `json:"self"`
+	Id        int    `json:"id"`
+	Key       string `json:"key"`
+	ColorName string `json:"colorName"`
+	Name      string `json:"name"`
+}
+
+type ProjectInfo struct {
+	Name            string              `json:"name"`
+	Self            string              `json:"self"`
+	ProjectTypeKey  string              `json:"projectTypeKey"`
+	Simplified      bool                `json:"simplified"`
+	Key             string              `json"key`
+	AvatarURLs      map[string]string   `json:"avatarUrls"`
+	ProjectCategory ProjectCategoryInfo `json:"projectCategory"`
+	Id              string              `json:"id"`
+}
+
+type AccountInfo struct {
+	DisplayName  string            `json:"displayName"`
+	TimeZone     string            `json:"timeZone"`
+	AccountId    string            `json:"accountId"`
+	AccountType  string            `json:"accountType"`
+	Self         string            `json:"self"`
+	AvatarURLs   map[string]string `json:"avatarUrls"`
+	Active       bool              `json:"active"`
+	EmailAddrees string            `json:"emailAddress"`
+}
+
+type ProjectCategoryInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Self        string `json:"self"`
+	Id          string `json:"id"`
+}
+
+type Field struct {
+	Summary   string               `json:"summary"`
+	Status    Status               `json:"status"`
+	Priority  Priority             `json:"priority"`
+	IssueType IssueTypeDescription `json:"issuetype"`
+	Project   ProjectInfo          `json:"project"`
+	Creator   AccountInfo          `json:"creator"`
+	Assignee  AccountInfo          `json:"assignee"`
+	Reporter  AccountInfo          `json:"reporter"`
+}
+
+type IssueFilter struct {
+	IssueType string
+}
+
+func (f IssueFilter) Filter(issues []Issue) (ret []Issue) {
+	for _, i := range issues {
+		var keep = true
+
+		if f.IssueType != "" && i.Fields.IssueType.Name != f.IssueType {
+			keep = false
+		}
+
+		if keep {
+			ret = append(ret, i)
+		}
+	}
+	return ret
+}
+
+type SearchResponse struct {
+	Expand     string  `json:"expand"`
+	StartAt    int     `json:"startAt"`
+	MaxResults int     `json:"maxResults"`
+	Total      int     `json:"total"`
+	Issues     []Issue `json:"issues"`
+}
+
+// Example
+//"issuetype": {
+//   "self": "https://benri.atlassian.net/rest/api/3/issuetype/10007",
+//   "id": "10007",
+//   "description": "Subtasks track small pieces of work that are part of a larger task.",
+//   "iconUrl": "https://benri.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10316?size=medium",
+//   "name": "Subtask",
+//   "subtask": true,
+//   "avatarId": 10316,
+//   "entityId": "2c4923b2-0754-499c-ab8e-0d1fefa20d99",
+//   "hierarchyLevel": -1
+// },
+type IssueTypeDescription struct {
+	Self           string `json:"self"`
+	Id             string `json:"id"`
+	Description    string `json:"description"`
+	IconURL        string `json:"iconUrl"`
+	Name           string `json:"name"`
+	Subtask        bool   `json:"subtask"`
+	AvatarId       int    `json:"avatarId"`
+	EntityId       string `json:"entityId"`
+	HeirarchyLevel int    `json:"hierarchyLevel"`
+}
+
+type Project struct {
+	Name string `json:"name"`
 }
